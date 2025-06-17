@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #000;
+            color: #fff;
+            min-height: 100vh;
+        }
+        
+        .header {
+            background-color: #111;
+            padding: 1rem 2rem;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            font-weight: 300;
+            font-size: 1.5rem;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .current-user {
+            font-size: 0.9rem;
+            color: #888;
+        }
+        
+        .logout-btn {
+            padding: 0.5rem 1rem;
+            background-color: #333;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 4px;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+        
+        .logout-btn:hover {
+            background-color: #555;
+        }
+        
+        .main-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .welcome-section {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+        
+        .welcome-section h2 {
+            font-weight: 300;
+            margin-bottom: 1rem;
+            font-size: 2rem;
+        }
+        
+        .welcome-section p {
+            color: #888;
+            font-size: 1.1rem;
+        }
+        
+        .users-section h3 {
+            font-weight: 300;
+            margin-bottom: 1.5rem;
+            font-size: 1.3rem;
+        }
+        
+        .users-grid {
+            display: grid;
+            gap: 1rem;
+        }
+        
+        .user-card {
+            background-color: #111;
+            padding: 1.5rem;
+            border-radius: 8px;
+            border: 1px solid #333;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        
+        .user-card:hover {
+            border-color: #555;
+            background-color: #1a1a1a;
+        }
+        
+        .user-info-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .user-details h4 {
+            font-weight: 400;
+            margin-bottom: 0.25rem;
+        }
+        
+        .user-details p {
+            color: #888;
+            font-size: 0.9rem;
+        }
+        
+        .chat-btn {
+            padding: 0.5rem 1rem;
+            background-color: #fff;
+            color: #000;
+            text-decoration: none;
+            border-radius: 4px;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+        
+        .chat-btn:hover {
+            background-color: #eee;
+        }
+        
+        .no-users {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            padding: 2rem;
+            background-color: #111;
+            border-radius: 8px;
+            border: 1px solid #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Chat Dashboard</h1>
+        <div class="user-info">
+            <span class="current-user">Logged in as: {{ current_user }}</span>
+            <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+        </div>
+    </div>
+    
+    <div class="main-container">
+        <div class="welcome-section">
+            <h2>Welcome, {{ current_user }}!</h2>
+            <p>Select a user below to start a conversation</p>
+        </div>
+        
+        <div class="users-section">
+            <h3>Available Users</h3>
+            
+            {% if users %}
+                <div class="users-grid">
+                    {% for user in users %}
+                        <div class="user-card" onclick="window.location.href='{{ url_for('private_chat', receiver_id=user.id) }}'">
+                            <div class="user-info-card">
+                                <div class="user-details">
+                                    <h4>{{ user.username }}</h4>
+                                    <p>Member since {{ user.created_at.strftime('%B %Y') }}</p>
+                                </div>
+                                <a href="{{ url_for('private_chat', receiver_id=user.id) }}" class="chat-btn">Start Chat</a>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="no-users">
+                    <p>No other users available at the moment.</p>
+                    <p>Share this app with friends to start chatting!</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

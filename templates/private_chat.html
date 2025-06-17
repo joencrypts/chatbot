@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat with {{ receiver.username }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #000;
+            color: #fff;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            background-color: #111;
+            padding: 1rem 2rem;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        
+        .header h1 {
+            font-weight: 300;
+            font-size: 1.2rem;
+        }
+        
+        .header-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .clear-btn {
+            padding: 0.5rem 1rem;
+            background-color: #dc3545;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+        
+        .clear-btn:hover {
+            background-color: #c82333;
+        }
+        
+        .back-btn {
+            padding: 0.5rem 1rem;
+            background-color: #333;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        
+        .back-btn:hover {
+            background-color: #555;
+        }
+        
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            max-width: 800px;
+            margin: 0 auto;
+            width: 100%;
+        }
+        
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            background-color: #050505;
+        }
+        
+        .message {
+            margin-bottom: 1rem;
+            padding: 0.75rem;
+            border-radius: 8px;
+            max-width: 70%;
+            word-wrap: break-word;
+        }
+        
+        .message.sent {
+            background-color: #333;
+            margin-left: auto;
+            text-align: right;
+        }
+        
+        .message.received {
+            background-color: #111;
+            margin-right: auto;
+        }
+        
+        .message-header {
+            font-size: 0.8rem;
+            color: #888;
+            margin-bottom: 0.25rem;
+        }
+        
+        .message-text {
+            line-height: 1.4;
+        }
+        
+        .input-container {
+            padding: 1rem;
+            background-color: #111;
+            border-top: 1px solid #333;
+            flex-shrink: 0;
+        }
+        
+        .input-form {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .message-input {
+            flex: 1;
+            padding: 0.75rem;
+            background-color: #222;
+            border: 1px solid #444;
+            border-radius: 4px;
+            color: #fff;
+            font-size: 1rem;
+        }
+        
+        .message-input:focus {
+            outline: none;
+            border-color: #666;
+        }
+        
+        .send-btn {
+            padding: 0.75rem 1.5rem;
+            background-color: #fff;
+            color: #000;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .send-btn:hover {
+            background-color: #eee;
+        }
+        
+        .send-btn:disabled {
+            background-color: #333;
+            color: #666;
+            cursor: not-allowed;
+        }
+        
+        .no-messages {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            padding: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Chat with {{ receiver.username }}</h1>
+        <div class="header-buttons">
+            <button class="clear-btn" id="clearBtn">Clear Chat</button>
+            <a href="{{ url_for('chat') }}" class="back-btn">← Back to Dashboard</a>
+        </div>
+    </div>
+    
+    <div class="chat-container">
+        <div class="messages-container" id="messagesContainer">
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="message {% if message.sender_id == current_user_id %}sent{% else %}received{% endif %}">
+                        <div class="message-header">
+                            {{ message.sender.username }} • {{ message.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}
+                        </div>
+                        <div class="message-text">{{ message.text }}</div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="no-messages">
+                    No messages yet. Start the conversation!
+                </div>
+            {% endif %}
+        </div>
+        
+        <div class="input-container">
+            <form class="input-form" id="messageForm">
+                <input type="text" class="message-input" id="messageInput" placeholder="Type your message..." required>
+                <button type="submit" class="send-btn" id="sendBtn">Send</button>
+            </form>
+        </div>
+    </div>
+    
+    <script src="https://unpkg.com/socket.io-client@4.7.2/dist/socket.io.js"></script>
+    <script>
+        // Fallback if Socket.IO fails to load
+        if (typeof io === 'undefined') {
+            console.error('Socket.IO failed to load from CDN');
+            alert('Error: Socket.IO client failed to load. Please refresh the page.');
+        }
+        
+        const socket = io();
+        const messagesContainer = document.getElementById('messagesContainer');
+        const messageForm = document.getElementById('messageForm');
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        
+        const currentUserId = {{ current_user_id }};
+        const receiverId = {{ receiver.id }};
+        const currentUsername = "{{ current_user }}";
+        
+        console.log('Chat initialized:', {
+            currentUserId: currentUserId,
+            receiverId: receiverId,
+            currentUsername: currentUsername
+        });
+        
+        // Scroll to bottom of messages
+        function scrollToBottom() {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+        
+        // Clear all messages from chat
+        function clearChat() {
+            // Remove all message elements
+            const messages = messagesContainer.querySelectorAll('.message');
+            messages.forEach(msg => msg.remove());
+            
+            // Add no-messages div
+            const noMessages = document.createElement('div');
+            noMessages.className = 'no-messages';
+            noMessages.innerHTML = '<p>No messages yet. Start the conversation!</p>';
+            messagesContainer.appendChild(noMessages);
+            
+            scrollToBottom();
+        }
+        
+        // Add message to chat
+        function addMessage(messageData) {
+            console.log('Adding message:', messageData);
+            const messageDiv = document.createElement('div');
+            const isSent = messageData.sender_id === currentUserId;
+            
+            messageDiv.className = `message ${isSent ? 'sent' : 'received'}`;
+            messageDiv.innerHTML = `
+                <div class="message-header">
+                    ${messageData.sender_username} • ${messageData.timestamp}
+                </div>
+                <div class="message-text">${messageData.text}</div>
+            `;
+            
+            // Remove no-messages div if it exists
+            const noMessages = messagesContainer.querySelector('.no-messages');
+            if (noMessages) {
+                noMessages.remove();
+            }
+            
+            messagesContainer.appendChild(messageDiv);
+            scrollToBottom();
+        }
+        
+        // Socket.IO event handlers
+        socket.on('connect', function() {
+            console.log('Connected to server');
+            socket.emit('join_chat', {
+                receiver_id: receiverId,
+                current_user_id: currentUserId,
+                current_username: currentUsername
+            });
+        });
+        
+        socket.on('disconnect', function() {
+            console.log('Disconnected from server');
+        });
+        
+        socket.on('new_message', function(data) {
+            console.log('Received new message:', data);
+            addMessage(data);
+        });
+        
+        socket.on('chat_cleared', function(data) {
+            console.log('Chat cleared by:', data.cleared_by);
+            clearChat();
+            
+            // Show notification
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background-color: #28a745;
+                color: white;
+                padding: 1rem;
+                border-radius: 4px;
+                z-index: 1000;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            `;
+            notification.textContent = `Chat cleared by ${data.cleared_by}`;
+            document.body.appendChild(notification);
+            
+            // Remove notification after 3 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 3000);
+        });
+        
+        socket.on('error', function(data) {
+            console.error('Socket error:', data);
+            alert('Error: ' + data.message);
+        });
+        
+        // Clear chat button click handler
+        clearBtn.addEventListener('click', function() {
+            if (confirm('Are you sure you want to clear this chat? This action cannot be undone and will clear the chat for both users.')) {
+                console.log('Clearing chat...');
+                socket.emit('clear_chat', {
+                    receiver_id: receiverId,
+                    current_user_id: currentUserId,
+                    current_username: currentUsername
+                });
+            }
+        });
+        
+        // Form submission
+        messageForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const text = messageInput.value.trim();
+            if (!text) return;
+            
+            console.log('Sending message:', text);
+            
+            // Disable send button temporarily
+            sendBtn.disabled = true;
+            
+            socket.emit('send_message', {
+                text: text,
+                receiver_id: receiverId,
+                current_user_id: currentUserId,
+                current_username: currentUsername
+            });
+            
+            messageInput.value = '';
+            sendBtn.disabled = false;
+            messageInput.focus();
+        });
+        
+        // Auto-focus input
+        messageInput.focus();
+        
+        // Initial scroll to bottom
+        scrollToBottom();
+        
+        // Handle page unload
+        window.addEventListener('beforeunload', function() {
+            socket.emit('leave_chat', {
+                receiver_id: receiverId,
+                current_user_id: currentUserId
+            });
+        });
+    </script>
+</body>
+</html>
